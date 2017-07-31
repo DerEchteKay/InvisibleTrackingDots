@@ -1,0 +1,4 @@
+PROBLEMS AND TODOs:
+
+	- the algorithm is too slow for creating thousands of dots
+	- measure the size of one printed dot for getting realistic results
