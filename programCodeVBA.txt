@@ -1,0 +1,212 @@
+Imports System.Drawing
+
+Public Class Form1
+    Dim DrawColor As Color = Color.Yellow
+    Dim bmp As Bitmap
+    Dim startTimeChosen As Boolean
+    Dim endTimeChosen As Boolean
+    Dim numPatterns As Integer
+    Dim args As String()
+
+    Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        dtpStartTime.CustomFormat = "MM/dd/yyyy hh:mm"
+        dtpEndTime.CustomFormat = "MM/dd/yyyy hh:mm"
+
+        dtpStartTime.MaxDate = Date.Now
+        dtpEndTime.MinDate = Date.Now
+        dtpStartTime.Value = Date.Now.AddMinutes(-5)
+        dtpEndTime.Value = Date.Now.AddMinutes(5)
+
+        startTimeChosen = False
+        endTimeChosen = False
+
+        bmp = New Bitmap(2100, 3000)
+        pbDraw.Image = bmp
+
+        Randomize()
+
+        args = Environment.GetCommandLineArgs()
+
+
+    End Sub
+
+    Private Sub genDot(X As Integer, Y As Integer)
+        Using g As Graphics = Graphics.FromImage(bmp) 'pbDraw.Image)
+            g.FillRectangle(New SolidBrush(DrawColor), New Rectangle(X, Y, 1, 1))
+        End Using
+
+        'pbDraw.Refresh()
+    End Sub
+
+    Private Function genSinglePattern()
+        Dim M(15, 7) As Boolean
+
+        'Origin is always True
+        M(0, 0) = True
+
+
+        ' generate the seperation column
+        For i = 0 To 7
+            M(9, i) = True
+        Next
+
+        Dim RandDate = RandomDate(dtpStartTime.Value, dtpEndTime.Value)
+        Dim BinDate(7) As Boolean
+        'Minutes
+        BinDate = Int2Bin(RandDate.Minute)
+        For i = 0 To 7
+            M(1, i) = BinDate(i)
+        Next
+
+        'Hours
+        BinDate = Int2Bin(RandDate.Hour)
+        For i = 0 To 7
+            M(4, i) = BinDate(i)
+        Next
+
+        'Days
+        BinDate = Int2Bin(RandDate.Day)
+        For i = 0 To 7
+            M(5, i) = BinDate(i)
+        Next
+
+        'Months
+        BinDate = Int2Bin(RandDate.Month)
+        For i = 0 To 7
+            M(6, i) = BinDate(i)
+        Next
+
+        'Years
+        BinDate = Int2Bin(RandDate.Year - 2000)
+        For i = 0 To 7
+            M(7, i) = BinDate(i)
+        Next
+
+        'fake Serial Printer Number
+        For i = 10 To 15
+            BinDate = Int2Bin(RandInt(0, 127))
+            For j = 0 To 7
+                M(i, j) = BinDate(j)
+
+            Next
+        Next
+
+        'parity column
+        For i = 1 To 7
+            Dim s = 0
+            For j = 1 To 15
+                s = s + M(j, i)
+            Next
+            If s Mod 2 = 0 Then
+                M(0, i) = True
+            End If
+        Next
+
+        'parity row
+        For i = 1 To 15
+            Dim s = 0
+            For j = 1 To 7
+                s = s + M(i, j)
+            Next
+            If s Mod 2 = 0 Then
+                M(i, 0) = True
+            End If
+        Next
+
+
+        genSinglePattern = M
+    End Function
+
+    Private Function Int2Bin(x As Integer)
+        If x > 127 Then
+            Debug.Print("Too large number in Int2Bin Function")
+            Exit Function
+        End If
+
+        Dim a(7) As Boolean
+        For i = 7 To -1 Step -1
+            If 2 ^ i <= x Then
+                x = x - 2 ^ i
+                a(-i + 7) = True
+            End If
+        Next
+        Int2Bin = a
+    End Function
+
+    Private Sub drawToBMP(M As Array)
+        For i = RandInt(0, 150) To bmp.Width / 10
+            For j = RandInt(0, 70) To bmp.Height / 10
+                If M(i Mod 15, j Mod 7) Then
+                    genDot(i * 10, j * 10)
+                End If
+            Next
+        Next
+    End Sub
+
+    Private Sub cmdPrint_Click(sender As Object, e As EventArgs) Handles cmdPrint.Click
+        numPatterns = tbSafety.Value() * 100 + 1
+        For i = 0 To numPatterns
+            drawToBMP(genSinglePattern)
+            ProgressBar.Value = i * 100 / numPatterns
+        Next
+        SaveImage()
+        End
+    End Sub
+
+    Private Sub SaveImage()
+        pbDraw.DrawToBitmap(bmp, New Rectangle(0, 0, 2100, 3000))
+        If args.Length = 1 Then
+            bmp.Save("ITDoverlay.png", Imaging.ImageFormat.Png)
+            MsgBox("Not Args Given : Saving in program directory")
+
+        Else
+
+            bmp.Save(args(1), Imaging.ImageFormat.Png)
+        End If
+    End Sub
+
+    Private Function RandInt(min As Integer, max As Integer)
+        RandInt = Int((max - min) * Rnd() + min)
+    End Function
+
+    Public Function RandomDate(dt As Date, edt As Date) As Date
+        'returns random date between start date and now
+
+        Dim iDifferential = DateDiff(DateInterval.Day,
+               dt, edt)
+
+        iDifferential = New Random(System.DateTime.Now.Millisecond).Next(0, iDifferential)
+
+        dt = DateAdd(DateInterval.Day, iDifferential, dt)
+
+        Return dt
+
+    End Function
+
+    Private Sub TminMaxTime_Tick(sender As Object, e As EventArgs) Handles TminMaxTime.Tick
+        dtpStartTime.MaxDate = Date.Now
+        dtpEndTime.MinDate = Date.Now
+        If Not startTimeChosen Then
+            dtpStartTime.Value = Date.Now.AddMinutes(-5)
+            startTimeChosen = False
+        End If
+        If Not endTimeChosen Then
+            dtpEndTime.Value = Date.Now.AddMinutes(5)
+            endTimeChosen = False
+        End If
+    End Sub
+
+    Private Sub dtpStartTime_ValueChanged(sender As Object, e As EventArgs) Handles dtpStartTime.ValueChanged
+        startTimeChosen = True
+    End Sub
+
+    Private Sub dtpEndTime_ValueChanged(sender As Object, e As EventArgs) Handles dtpEndTime.ValueChanged
+        endTimeChosen = True
+    End Sub
+
+    Private Sub cmdPrintWithout_Click(sender As Object, e As EventArgs) Handles cmdPrintWithout.Click
+        SaveImage()
+        End
+    End Sub
+
+End Class
